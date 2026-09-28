@@ -91,20 +91,22 @@ The container listens on `8080` by default. Expose it through a TLS-enabled reve
 
 ## Published Docker image
 
-GitHub Actions builds and publishes `ghcr.io/software-atelier/simpleflex-bridge` to GitHub Container Registry on every push to `dev`. It also supports manual runs from the `dev` branch. Each successful build receives the moving `dev` tag and a commit-specific `sha-<full-commit-sha>` tag. The Docker build runs the Maven tests before publishing. No image is published from `master`.
+GitHub Actions builds and publishes `ghcr.io/software-atelier/simpleflex-bridge` to GitHub Container Registry on every push to `dev` or `master`. Manual runs are also supported from either branch. Successful `master` builds receive the moving `latest` and `master` tags; successful `dev` builds receive the moving `dev` tag. Every build also receives a commit-specific `sha-<full-commit-sha>` tag. The Docker build runs the Maven tests before publishing. Use `latest` or `master` for normal deployments and `dev` to test the development branch.
+
+Run the published image with WebDAV:
 
 ```sh
-docker pull ghcr.io/software-atelier/simpleflex-bridge:dev
+docker pull ghcr.io/software-atelier/simpleflex-bridge:latest
 docker run --rm -p 8080:8080 \
   -e BRIDGE_BACKEND=webdav \
   -e WEBDAV_URL=https://dav.example.com/public/ \
-  ghcr.io/software-atelier/simpleflex-bridge:dev
+  ghcr.io/software-atelier/simpleflex-bridge:latest
 ```
 
 For SFTP, set `SFTP_PASSWORD` in your shell environment (or use an environment file), mount a verified `known_hosts` file, and adjust the host, user, and root path:
 
 ```sh
-docker pull ghcr.io/software-atelier/simpleflex-bridge:dev
+docker pull ghcr.io/software-atelier/simpleflex-bridge:latest
 docker run --rm -p 8080:8080 \
   -e BRIDGE_BACKEND=sftp \
   -e BRIDGE_ROOT=/srv/public \
@@ -113,10 +115,10 @@ docker run --rm -p 8080:8080 \
   -e SFTP_PASSWORD \
   -e SFTP_KNOWN_HOSTS=/run/secrets/known_hosts \
   -v "$PWD/known_hosts:/run/secrets/known_hosts:ro" \
-  ghcr.io/software-atelier/simpleflex-bridge:dev
+  ghcr.io/software-atelier/simpleflex-bridge:latest
 ```
 
-Set backend credentials and other options as described above. For reproducible deployments, use the `sha-<full-commit-sha>` tag instead of `dev`. GitHub may create the container package as private initially; if anonymous pulls are needed, set its visibility to public in the package settings.
+Set backend credentials and other options as described above. To test the development image, replace `:latest` with `:dev` in the commands. For reproducible deployments, use the `sha-<full-commit-sha>` tag instead of a moving tag. The package is public, so pulling the image does not require a GitHub login.
 
 ## Operational behavior and limitations
 

@@ -2,7 +2,7 @@ name: Publish Docker image
 
 on:
   push:
-    branches: [dev]
+    branches: [dev, master]
   workflow_dispatch:
 
 permissions:
@@ -10,12 +10,12 @@ permissions:
   packages: write
 
 concurrency:
-  group: publish-image-dev
+  group: publish-image-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   publish:
-    if: github.ref == 'refs/heads/dev'
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -30,7 +30,9 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=raw,value=dev
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
+            type=raw,value=master,enable=${{ github.ref == 'refs/heads/master' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
             type=sha,format=long
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}

@@ -1,6 +1,6 @@
 # Simpleflex Bridge
 
-Simpleflex Bridge is a read-only HTTP file server built on [Simpleflex Base](https://github.com/software-atelier/simpleflex-base). One instance uses **either WebDAV or SFTP** as its source. It is packaged as a Docker image. The CI/CD pipeline will be added separately.
+Simpleflex Bridge is a read-only HTTP file server built on [Simpleflex Base](https://github.com/software-atelier/simpleflex-base). One instance uses **either WebDAV or SFTP** as its source. It is packaged as a Docker image.
 
 ## Directory behavior
 
@@ -87,7 +87,36 @@ docker run --rm -p 8080:8080 \
 
 For key authentication, omit `SFTP_PASSWORD`, set `SFTP_PRIVATE_KEY=/run/secrets/id_ed25519`, and mount the key read-only. Example commands above put passwords in shell history or process metadata; use `--env-file` or orchestrator secrets in deployment.
 
-The container listens on `8080` by default. Expose it through a TLS-enabled reverse proxy. The runtime image runs as non-root UID `10001`. No pipeline configuration is included yet.
+The container listens on `8080` by default. Expose it through a TLS-enabled reverse proxy. The runtime image runs as non-root UID `10001`.
+
+## Published Docker image
+
+GitHub Actions builds and publishes `ghcr.io/software-atelier/simpleflex-bridge` to GitHub Container Registry on every push to `dev`. It also supports manual runs from the `dev` branch. Each successful build receives the moving `dev` tag and a commit-specific `sha-<full-commit-sha>` tag. The Docker build runs the Maven tests before publishing. No image is published from `master`.
+
+```sh
+docker pull ghcr.io/software-atelier/simpleflex-bridge:dev
+docker run --rm -p 8080:8080 \
+  -e BRIDGE_BACKEND=webdav \
+  -e WEBDAV_URL=https://dav.example.com/public/ \
+  ghcr.io/software-atelier/simpleflex-bridge:dev
+```
+
+For SFTP, set `SFTP_PASSWORD` in your shell environment (or use an environment file), mount a verified `known_hosts` file, and adjust the host, user, and root path:
+
+```sh
+docker pull ghcr.io/software-atelier/simpleflex-bridge:dev
+docker run --rm -p 8080:8080 \
+  -e BRIDGE_BACKEND=sftp \
+  -e BRIDGE_ROOT=/srv/public \
+  -e SFTP_HOST=sftp.example.com \
+  -e SFTP_USERNAME=bridge \
+  -e SFTP_PASSWORD \
+  -e SFTP_KNOWN_HOSTS=/run/secrets/known_hosts \
+  -v "$PWD/known_hosts:/run/secrets/known_hosts:ro" \
+  ghcr.io/software-atelier/simpleflex-bridge:dev
+```
+
+Set backend credentials and other options as described above. For reproducible deployments, use the `sha-<full-commit-sha>` tag instead of `dev`. GitHub may create the container package as private initially; if anonymous pulls are needed, set its visibility to public in the package settings.
 
 ## Operational behavior and limitations
 

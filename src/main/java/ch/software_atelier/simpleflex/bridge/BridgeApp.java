@@ -6,7 +6,6 @@ import ch.software_atelier.simpleflex.apps.WebApp;
 import ch.software_atelier.simpleflex.docs.HeaderField;
 import ch.software_atelier.simpleflex.docs.WebDoc;
 import ch.software_atelier.simpleflex.docs.impl.ByteDoc;
-import ch.software_atelier.simpleflex.docs.impl.ErrorDoc;
 import ch.software_atelier.simpleflex.docs.impl.InputStreamDoc;
 import org.mindrot.jbcrypt.BCrypt;
 import java.io.IOException;
@@ -118,10 +117,17 @@ public final class BridgeApp implements WebApp {
     private static WebDoc challenge() {
         WebDoc doc = error(401, "Unauthorized");
         doc.getHeaders().add(new HeaderField("WWW-Authenticate:", "Basic realm=\"Simpleflex Bridge\", charset=\"UTF-8\""));
-        doc.getHeaders().add(new HeaderField("Cache-Control:", "no-store"));
         return doc;
     }
-    private static WebDoc error(int code, String reason) { return new ErrorDoc(reason, code, reason); }
+    private static WebDoc error(int code, String reason) {
+        ByteDoc doc = new ByteDoc(ErrorPage.render(code).getBytes(StandardCharsets.UTF_8), "error.html", "text/html; charset=utf-8");
+        // Never use backend or configuration details in either the page or HTTP status line.
+        doc.setHTTPCode(code, code == 502 ? "Bad Gateway" : reason);
+        doc.getHeaders().add(new HeaderField("X-Content-Type-Options:", "nosniff"));
+        doc.getHeaders().add(new HeaderField("Cache-Control:", "no-store"));
+        if (code == 405) doc.getHeaders().add(new HeaderField("Allow:", "GET"));
+        return doc;
+    }
     private static boolean isControl(String path) {
         return Arrays.stream(path.split("/")).anyMatch(s -> s.equals(".auth") || s.equals(".list"));
     }

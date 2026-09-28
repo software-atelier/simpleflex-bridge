@@ -14,13 +14,17 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 
 final class WebDavBackend implements Backend {
     private static final String DAV = "DAV:";
-    private static final String PROPFIND_BODY = "<d:propfind xmlns:d=\"DAV:\"><d:prop><d:resourcetype/><d:getcontentlength/></d:prop></d:propfind>";
+    private static final String PROPFIND_BODY = "<d:propfind xmlns:d=\"DAV:\"><d:prop><d:resourcetype/><d:getcontentlength/><d:getlastmodified/></d:prop></d:propfind>";
     private final HttpClient client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).connectTimeout(Duration.ofSeconds(10)).build();
     private final URI baseUri;
     private final String root;
@@ -87,7 +91,8 @@ final class WebDavBackend implements Backend {
                 if (!raw.equals(base) && !(depth == 1 && raw.startsWith(base + "/") && raw.substring(base.length()+1).indexOf('/') < 0)) continue;
                 NodeList props = el.getElementsByTagNameNS(DAV, "propstat");
                 boolean found = false, directory = false;
-                long length = 0;
+                long length = -1;
+                Instant modifiedTime = null;
                 for (int j = 0; j < props.getLength(); j++) {
                     Element ps = (Element) props.item(j);
                     String status = text(ps, "status");
@@ -96,10 +101,15 @@ final class WebDavBackend implements Backend {
                     directory |= ps.getElementsByTagNameNS(DAV, "collection").getLength() > 0;
                     String lengthText = text(ps, "getcontentlength");
                     if (lengthText != null && !lengthText.isBlank()) length = Long.parseLong(lengthText.trim());
+                    String modifiedText = text(ps, "getlastmodified");
+                    if (modifiedText != null && !modifiedText.isBlank()) {
+                        try { modifiedTime = ZonedDateTime.parse(modifiedText.trim(), DateTimeFormatter.RFC_1123_DATE_TIME).toInstant(); }
+                        catch (DateTimeParseException ignored) { /* Some WebDAV servers omit or misformat this optional property. */ }
+                    }
                 }
                 if (found) {
                     String name = java.net.URLDecoder.decode(raw.substring(raw.lastIndexOf('/') + 1).replace("+", "%2B"), StandardCharsets.UTF_8);
-                    entries.add(new DavEntry(raw.equals(base), new Entry(name, directory, length)));
+                    entries.add(new DavEntry(raw.equals(base), new Entry(name, directory, length, modifiedTime)));
                 }
             }
             return entries;

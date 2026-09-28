@@ -97,6 +97,25 @@ class BridgeAppTest {
                 .file("/a b/é&/.list", "").file("/a b/é&/child %.txt", "content");
         String listing = body(new BridgeApp(fs).process(request("/a b/é&", null)));
         assertTrue(listing.contains("href=\"/a%20b/%C3%A9%26/child%20%25.txt\""), listing);
-        assertTrue(listing.contains(">child %.txt</a>"), listing);
+        assertTrue(listing.contains("<span class=\"name\">child %.txt</span>"), listing);
+    }
+
+    @Test void listingOptionsControlHiddenFilesAndParentLink() throws Exception {
+        FakeBackend fs = new FakeBackend().dir("/public")
+                .file("/public/.list", "")
+                .file("/public/visible.txt", "V")
+                .file("/public/.hidden.txt", "H");
+        BridgeApp app = new BridgeApp(fs);
+        String defaults = body(app.process(request("/public", null)));
+        assertTrue(defaults.contains("visible.txt"));
+        assertFalse(defaults.contains(".hidden.txt"));
+        assertFalse(defaults.contains("Parent folder"));
+        fs.file("/public/.list", "hidden=true\nup=true\n");
+        String configured = body(app.process(request("/public", null)));
+        assertTrue(configured.contains(".hidden.txt"));
+        assertTrue(configured.contains("Parent folder"));
+        assertTrue(configured.contains("href=\"/\""));
+        assertFalse(configured.contains(".list</span>"));
+        assertFalse(configured.contains(".auth</span>"));
     }
 }

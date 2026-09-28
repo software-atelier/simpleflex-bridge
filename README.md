@@ -7,10 +7,19 @@ Simpleflex Bridge is a read-only HTTP file server built on [Simpleflex Base](htt
 For a requested directory, including a path with or without a trailing slash, Bridge applies these rules in order:
 
 1. Serve `index.html` if it is a regular file.
-2. If a regular `.list` file exists, render an HTML directory listing. The contents of `.list` are ignored; it is only a marker.
+2. If a regular `.list` file exists, render a responsive HTML directory listing using that file's options.
 3. Otherwise return `404 Not Found`.
 
-Regular files are streamed as-is. `.auth` and `.list` cannot be requested directly and never appear in listings. Listings escape HTML and URL-encode filenames. Only `GET` is supported. Uploads and write methods are disabled.
+An empty `.list` file enables the listing with default options. To configure a directory, put one `key=true` or `key=false` option per line in its UTF-8 `.list` file:
+
+```text
+hidden=false
+up=true
+```
+
+`hidden` defaults to `false`, hiding names that begin with a dot. Set it to `true` to include them. `up` defaults to `false`; set it to `true` to show a link to the parent directory (there is no parent link at the root). Options apply to this directory's listing only, not its descendants. Blank lines and lines beginning with `#` are ignored. Unknown options are ignored. `.list` files must be at most 64 KiB.
+
+The listing shows folders first, then files, with file sizes and modification dates when the backend provides them. Missing metadata is shown as a dash; dates are displayed in UTC. Regular files are streamed as-is. `.auth` and `.list` cannot be requested directly and never appear in listings, even with `hidden=true`. Listings escape HTML and URL-encode filenames. Only `GET` is supported. Uploads and write methods are disabled.
 
 ## Authentication
 

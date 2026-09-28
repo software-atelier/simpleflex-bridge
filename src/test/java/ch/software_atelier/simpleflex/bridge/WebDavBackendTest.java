@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -50,7 +51,7 @@ class WebDavBackendTest {
                       <d:response><d:href>/dav/folder/</d:href><d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>
                       <d:response><d:href>file%20name.txt</d:href>
                         <d:propstat><d:prop><d:resourcetype/></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>
-                        <d:propstat><d:prop><d:getcontentlength>5</d:getcontentlength></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>
+                        <d:propstat><d:prop><d:getcontentlength>5</d:getcontentlength><d:getlastmodified>Mon, 28 Sep 2026 14:30:00 GMT</d:getlastmodified></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>
                       </d:response>
                     </d:multistatus>
                     """;
@@ -67,8 +68,11 @@ class WebDavBackendTest {
             backend.stat("/");
             assertEquals("/dav/", requested.get());
             assertTrue(backend.stat("/folder").directory());
+            assertEquals(-1, backend.stat("/folder").size());
             assertEquals("/dav/folder", requested.get());
             assertEquals("file name.txt", backend.list("/folder").get(0).name());
+            assertEquals(5, backend.list("/folder").get(0).size());
+            assertEquals(Instant.parse("2026-09-28T14:30:00Z"), backend.list("/folder").get(0).modifiedTime());
             assertEquals("/dav/folder/", requested.get());
             Backend.Content file = backend.open("/folder/file name.txt");
             try (var body = file.stream()) { assertEquals("hello", new String(body.readAllBytes(), StandardCharsets.UTF_8)); }

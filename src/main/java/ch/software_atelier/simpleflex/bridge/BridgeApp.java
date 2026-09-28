@@ -44,7 +44,7 @@ public final class BridgeApp implements WebApp {
                 Backend.Metadata indexMeta = backend.stat(index);
                 if (indexMeta != null && !indexMeta.directory()) return serve(index, indexMeta);
                 Backend.Metadata listMeta = backend.stat(dir + "/.list");
-                if (listMeta != null && !listMeta.directory()) return listing(path);
+                if (listMeta != null && !listMeta.directory()) return listing(path, dir + "/.list", listMeta);
                 return error(404, "Not Found");
             }
             return serve(path, metadata);
@@ -62,18 +62,13 @@ public final class BridgeApp implements WebApp {
         doc.getHeaders().add(new HeaderField("Cache-Control:", "no-store"));
         return doc;
     }
-    private WebDoc listing(String path) throws IOException {
-        StringBuilder html = new StringBuilder("<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Index of ")
-                .append(escape(path)).append("</title><h1>Index of ").append(escape(path)).append("</h1><ul>");
-        for (Backend.Entry entry : backend.list(path)) {
-            String name = entry.name();
-            if (name.equals(".") || name.equals("..") || name.equals(".auth") || name.equals(".list") || name.contains("/") || name.contains("\\")) continue;
-            String base = encodePath(path) + (path.equals("/") ? "" : "/");
-            String href = base + encodeSegment(name) + (entry.directory() ? "/" : "");
-            html.append("<li><a href=\"").append(escape(href)).append("\">").append(escape(name)).append(entry.directory() ? "/" : "").append("</a></li>");
-        }
-        html.append("</ul></html>");
-        byte[] data = html.toString().getBytes(StandardCharsets.UTF_8);
+    private WebDoc listing(String path, String configPath, Backend.Metadata configMeta) throws IOException {
+        if (configMeta.size() > 64 * 1024) throw new IOException("Invalid listing configuration");
+        byte[] configBytes;
+        try (var stream = backend.open(configPath).stream()) { configBytes = stream.readNBytes(64 * 1024 + 1); }
+        if (configBytes.length > 64 * 1024) throw new IOException("Invalid listing configuration");
+        ListConfig config = ListConfig.parse(new String(configBytes, StandardCharsets.UTF_8));
+        byte[] data = ListingPage.render(path, backend.list(path), config.hidden(), config.up()).getBytes(StandardCharsets.UTF_8);
         ByteDoc doc = new ByteDoc(data, "index.html", "text/html; charset=utf-8");
         doc.getHeaders().add(new HeaderField("X-Content-Type-Options:", "nosniff"));
         doc.getHeaders().add(new HeaderField("Cache-Control:", "no-store"));

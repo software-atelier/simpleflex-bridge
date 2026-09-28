@@ -7,6 +7,7 @@ import net.schmizz.sshj.sftp.RemoteFile;
 import net.schmizz.sshj.sftp.SFTPClient;
 import java.io.FilterInputStream;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.List;
 
 final class SftpBackend implements Backend {
@@ -57,7 +58,8 @@ final class SftpBackend implements Backend {
             if (attrs == null || attrs.getType() != FileMode.Type.DIRECTORY) throw new IOException("Directory unavailable");
             return session.sftp.ls(remote(path)).stream()
                     .filter(e -> !e.getName().equals(".") && !e.getName().equals("..") && e.getAttributes().getType() != FileMode.Type.SYMLINK)
-                    .map(e -> new Entry(e.getName(), e.isDirectory(), e.getAttributes().getSize())).toList();
+                    .map(e -> new Entry(e.getName(), e.isDirectory(), e.getAttributes().getSize(),
+                            Instant.ofEpochSecond(e.getAttributes().getMtime()))).toList();
         }
     }
     @Override public Content open(String path) throws IOException {
